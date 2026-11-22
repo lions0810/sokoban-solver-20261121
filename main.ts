@@ -370,22 +370,31 @@ function searchRoom(room, exitRequired, budget, greedy) {
     if (node.boxes.join(',') === goalKey) {
       let endPlayer = node.player;
       let extra = '';
+      let solved = true;
       if (exitRequired) {
         const boxAt = new Uint8Array(n);
         for (const b of node.boxes) boxAt[b] = 1;
         const bfs = bfsFrom(room, node.player, boxAt);
-        if (bfs.parent[entryLocal] === -1) continue; // cannot exit from here; keep searching
-        extra = pathTo(bfs, entryLocal);
-        endPlayer = entryLocal;
+        if (bfs.parent[entryLocal] === -1) {
+          // All boxes are home but the player is walled in: do not discard this
+          // state — a box may have to leave a goal and come back so the player
+          // can get out. Fall through and expand it instead.
+          solved = false;
+        } else {
+          extra = pathTo(bfs, entryLocal);
+          endPlayer = entryLocal;
+        }
       }
-      const parts = [];
-      let cur = node;
-      while (cur) {
-        parts.push(cur.moves);
-        cur = cur.parent;
+      if (solved) {
+        const parts = [];
+        let cur = node;
+        while (cur) {
+          parts.push(cur.moves);
+          cur = cur.parent;
+        }
+        parts.reverse();
+        return { ok: true, pushes: node.g, moves: parts.join('') + extra, endPlayer };
       }
-      parts.reverse();
-      return { ok: true, pushes: node.g, moves: parts.join('') + extra, endPlayer };
     }
     if (++expansions > budget || ++globalExpansions > GLOBAL_BUDGET) {
       return { ok: false, reason: 'budget' };
